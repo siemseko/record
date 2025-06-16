@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Over Studio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background similar to image */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #e2e8f0; /* Light text color */
+        }
+        .container {
+            background-color: #2d3748; /* Darker card background */
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); /* Stronger shadow */
+            padding: 2.5rem;
+            max-width: 900px; /* Wider for timeline */
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .button:active {
+            transform: translateY(0);
+        }
+        .button-primary {
+            background-color: #4299e1; /* Blue 400 */
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(66, 153, 225, 0.3);
+        }
+        .button-primary:hover {
+            background-color: #3182ce; /* Blue 500 */
+        }
+        .button-danger {
+            background-color: #fc8181; /* Red 400 */
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(252, 129, 129, 0.3);
+        }
+        .button-danger:hover {
+            background-color: #e53e3e; /* Red 500 */
+        }
+        .button-secondary {
+            background-color: #4a5568; /* Gray 700 */
+            color: #e2e8f0;
+        }
+        .button-secondary:hover {
+            background-color: #2d3748; /* Gray 800 */
+        }
+        .button-success {
+            background-color: #48bb78; /* Green 400 */
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(72, 187, 120, 0.3);
+        }
+        .button-success:hover {
+            background-color: #38a169; /* Green 500 */
+        }
+        .disabled-button {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .status-message {
+            font-size: 0.95rem;
+            color: #cbd5e0; /* Light gray */
+            margin-top: 1rem;
+        }
+        .icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Timeline specific styles */
+        .timeline-section {
+            background-color: #1a202c; /* Even darker for timeline background */
+            border-radius: 0.75rem;
+            padding: 1rem;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem; /* Increased gap between tracks */
+            position: relative;
+            overflow-x: auto; /* Allow horizontal scrolling if tracks extend */
+        }
+        .track-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem; /* Gap between track and its edit panel */
+            position: relative; /* For translateX positioning */
+            left: 0; /* Base position */
+            transform: translateX(var(--visual-x-offset, 0px));
+            transition: transform 0.1s ease-out; /* Smooth dragging */
+            z-index: 1; /* Default z-index */
+        }
+        .track-wrapper.dragging {
+            z-index: 100; /* Bring dragged item to front */
+            cursor: grabbing;
+        }
+        .timeline-track {
+            background-color: #262e3d; /* Dark background for the audio clip */
+            height: 60px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem; /* Adjust padding to give more space for waveform */
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            position: relative;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.3); /* Subtle inner shadow */
+            overflow: hidden; /* Ensure content stays within borders */
+            justify-content: flex-start;
+        }
+        .track-name {
+            position: absolute; /* Position name over the waveform */
+            top: 50%;
+            left: 10px; /* Offset from left edge */
+            transform: translateY(-50%);
+            font-weight: 500;
+            z-index: 1; /* Ensure text is above waveform */
+            color: #e2e8f0; /* Ensure visibility on waveform */
+            pointer-events: none; /* Allow clicks to pass through to buttons if needed */
+        }
+        .waveform-container {
+            height: 100%; /* Fill track height */
+            flex-grow: 1; /* Take all available space in its row */
+            background-color: #008080; /* Teal base for waveform */
+            border-radius: 0.375rem;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Visual offset for trimStart */
+            margin-left: var(--visual-trim-start-offset, 0px);
+            width: var(--visual-width, 100%); /* Visual width for trimming */
+            transition: margin-left 0.3s ease-out, width 0.3s ease-out; /* Smooth transition */
+        }
+        /* Simulated waveform peaks */
+        .waveform-container::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(90deg, #00ced1 0px, #00ced1 2px, transparent 2px, transparent 8px); /* Teal jagged lines */
+            opacity: 0.8; /* Stronger visibility for the waveform */
+        }
+        /* Play/Pause button directly on waveform */
+        .waveform-controls {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2; /* Above waveform and name */
+        }
+        .waveform-controls button {
+            background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent background */
+            border-radius: 50%;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: background-color 0.2s;
+        }
+        .waveform-controls button:hover {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+        .waveform-controls .icon {
+            width: 1.5rem;
+            height: 1.5rem;
+            color: #e2e8f0;
+        }
+
+        .track-external-controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-left: 1rem;
+            z-index: 1; /* Keep above edit panel */
+        }
+        .track-external-controls button {
+            background-color: #4a5568;
+            border: none;
+            cursor: pointer;
+            color: #a0aec0;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .track-external-controls button:hover {
+            background-color: #616e7f;
+            color: #ffffff;
+        }
+        .track-external-controls .icon {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Edit Panel Styles */
+        .edit-panel {
+            background-color: #262e3d;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            text-align: left;
+            margin-top: -0.25rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 10;
+        }
+        .edit-panel.active {
+            display: flex;
+        }
+        .edit-panel-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+        .edit-panel-row label {
+            min-width: 80px;
+            color: #a0aec0;
+        }
+        .edit-panel-row input[type="number"] {
+            background-color: #3b4553;
+            border: 1px solid #4a5568;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            color: #e2e8f0;
+            width: 80px; /* Adjusted width for inputs */
+            text-align: center;
+        }
+        .edit-panel-row input[type="number"]:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.4);
+        }
+        .edit-panel .apply-button {
+            background-color: #4299e1;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: auto; /* Push button to the right */
+        }
+        .edit-panel .apply-button:hover {
+            background-color: #3182ce;
+        }
+        .edit-panel .message {
+            font-size: 0.85rem;
+            color: #cbd5e0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-white mb-4">Voice Over Studio</h1>
+
+        <!-- Top Controls: Export and Global Play/Pause/Record -->
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            <button id="exportAllButton" class="button button-success disabled-button" disabled>
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export All (Feature WIP)
+            </button>
+            <div class="flex flex-wrap justify-center gap-4">
+                <button id="recordButton" class="button button-primary">
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a4 4 0 00-4 4V9a4 4 0 014-4h0a4 4 0 014 4v2.5"></path></svg>
+                    Start New Recording
+                </button>
+                <button id="stopButton" class="button button-danger disabled-button" disabled>
+                    <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg>
+                    Stop Recording
+                </button>
+            </div>
+        </div>
+
+        <!-- Timeline / Tracks Area -->
+        <div class="timeline-section" id="timelineContainer">
+            <p id="emptyTimelineMessage" class="empty-timeline-message">
+                Record your first voiceover to see it here!
+            </p>
+        </div>
+
+        <p id="statusMessage" class="status-message">Click "Start New Recording" to begin.</p>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const exportAllButton = document.getElementById('exportAllButton');
+        const timelineContainer = document.getElementById('timelineContainer');
+        const emptyTimelineMessage = document.getElementById('emptyTimelineMessage');
+        const statusMessage = document.getElementById('statusMessage');
+
+        let mediaRecorder; // Stores the MediaRecorder instance
+        let currentAudioChunks = []; // Stores chunks for the *current* recording
+        let recordedVoiceovers = []; // Array to store all recorded voiceover objects
+        let currentPlayingAudio = null; // To keep track of the currently playing audio
+
+        // Variables for drag functionality
+        let draggedTrack = null;
+        let initialMouseX;
+        let initialTrackX; // Stores the current translateX value of the dragged track
+
+        // Define a visual scale (pixels per second) for the timeline
+        // This affects how long a 1-second audio visually appears on the timeline
+        const PIXELS_PER_SECOND = 100; // 100 pixels per second visually
+        const TRACK_SPACING_PIXELS = 20; // Additional space between auto-positioned tracks
+
+        // Function to update button states and messages
+        function updateUI(isRecording) {
+            if (isRecording) {
+                recordButton.disabled = true;
+                recordButton.classList.add('disabled-button');
+                stopButton.disabled = false;
+                stopButton.classList.remove('disabled-button');
+                statusMessage.textContent = 'Recording... Click "Stop Recording" to finish.';
+            } else {
+                recordButton.disabled = false;
+                recordButton.classList.remove('disabled-button');
+                stopButton.disabled = true;
+                stopButton.classList.add('disabled-button');
+                statusMessage.textContent = 'Click "Start New Recording" to add another voice over.';
+
+                // Enable/disable export all button based on recordings presence
+                if (recordedVoiceovers.length > 0) {
+                    exportAllButton.disabled = false;
+                    exportAllButton.classList.remove('disabled-button');
+                } else {
+                    exportAllButton.disabled = true;
+                    exportAllButton.classList.add('disabled-button');
+                }
+            }
+        }
+
+        // Function to render all recorded voiceovers in the timeline
+        function renderVoiceovers() {
+            timelineContainer.innerHTML = ''; // Clear existing tracks
+            if (recordedVoiceovers.length === 0) {
+                emptyTimelineMessage.classList.remove('hidden');
+                timelineContainer.appendChild(emptyTimelineMessage);
+            } else {
+                emptyTimelineMessage.classList.add('hidden');
+                recordedVoiceovers.forEach((vo, index) => {
+                    // Wrapper for track and its edit panel - this is the draggable element
+                    const trackWrapper = document.createElement('div');
+                    trackWrapper.className = 'track-wrapper';
+                    trackWrapper.dataset.index = index;
+                    trackWrapper.draggable = true; // Make it draggable
+
+                    // Apply visual X offset (for dragging and auto-positioning)
+                    trackWrapper.style.setProperty('--visual-x-offset', `${vo.visualXOffset || 0}px`);
+
+                    // Store reference to trackWrapper for drag events
+                    vo.trackWrapper = trackWrapper;
+
+
+                    const trackDiv = document.createElement('div');
+                    trackDiv.className = 'timeline-track';
+
+                    // Track Name (positioned absolutely over waveform)
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = `Voiceover ${index + 1}`;
+                    nameSpan.className = 'track-name';
+
+                    // Waveform Container (visual representation)
+                    const waveformContainer = document.createElement('div');
+                    waveformContainer.className = 'waveform-container';
+                    // Apply visual trim and duration directly via CSS custom properties
+                    waveformContainer.style.setProperty('--visual-trim-start-offset', `${vo.trimStartOffset || 0}px`);
+                    waveformContainer.style.setProperty('--visual-width', `${vo.visualDurationSeconds * PIXELS_PER_SECOND || 0}px`);
+
+
+                    vo.waveformContainer = waveformContainer; // Store reference
+
+                    // Play/Pause button directly on waveform
+                    const waveformControlsDiv = document.createElement('div');
+                    waveformControlsDiv.className = 'waveform-controls';
+
+                    const playPauseBtn = document.createElement('button');
+                    playPauseBtn.innerHTML = `
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197 2.132A1 1 0 0110 13.805v-3.61c0-.81 1.298-1.298 1.951-.868l3.197 2.132a1 1 0 010 1.668z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    `;
+                    playPauseBtn.title = "Play/Pause Voice Over";
+                    playPauseBtn.dataset.audioIndex = index;
+                    playPauseBtn.dataset.action = 'play';
+                    playPauseBtn.dataset.playing = 'false';
+                    waveformControlsDiv.appendChild(playPauseBtn);
+
+
+                    // Hidden Audio Element for actual playback
+                    const audio = document.createElement('audio');
+                    audio.src = vo.url;
+                    audio.preload = "auto";
+                    vo.audioElement = audio; // Store reference
+
+                    // Event listeners for individual audio playback
+                    audio.addEventListener('play', () => {
+                        if (currentPlayingAudio && currentPlayingAudio !== audio) {
+                            currentPlayingAudio.pause();
+                        }
+                        currentPlayingAudio = audio;
+                        playPauseBtn.innerHTML = `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                        playPauseBtn.dataset.playing = 'true';
+                    });
+
+                    audio.addEventListener('pause', () => {
+                        if (currentPlayingAudio === audio) {
+                            currentPlayingAudio = null;
+                        }
+                        playPauseBtn.innerHTML = `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197 2.132A1 1 0 0110 13.805v-3.61c0-.81 1.298-1.298 1.951-.868l3.197 2.132a1 1 0 010 1.668z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                        playPauseBtn.dataset.playing = 'false';
+                    });
+
+                    audio.addEventListener('ended', () => {
+                        if (currentPlayingAudio === audio) {
+                            currentPlayingAudio = null;
+                        }
+                        playPauseBtn.innerHTML = `<svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197 2.132A1 1 0 0110 13.805v-3.61c0-.81 1.298-1.298 1.951-.868l3.197 2.132a1 1 0 010 1.668z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                        playPauseBtn.dataset.playing = 'false';
+                    });
+
+
+                    // External Track Controls (Edit, Download, Delete)
+                    const externalControlsDiv = document.createElement('div');
+                    externalControlsDiv.className = 'track-external-controls';
+
+                    // Edit Button
+                    const editBtn = document.createElement('button');
+                    editBtn.innerHTML = `
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    `;
+                    editBtn.title = "Edit Voice Over (Visual Trim & Duration)";
+                    editBtn.dataset.index = index;
+                    editBtn.addEventListener('click', () => toggleEditPanel(index));
+
+                    // Download Button
+                    const downloadBtn = document.createElement('a');
+                    downloadBtn.href = vo.url;
+                    downloadBtn.download = vo.filename;
+                    downloadBtn.innerHTML = `
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    `;
+                    downloadBtn.title = "Download this voiceover";
+
+                    // Delete Button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = `
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    `;
+                    deleteBtn.title = "Delete this voiceover";
+                    deleteBtn.addEventListener('click', () => deleteVoiceover(index));
+
+
+                    externalControlsDiv.appendChild(editBtn);
+                    externalControlsDiv.appendChild(downloadBtn);
+                    externalControlsDiv.appendChild(deleteBtn);
+
+                    // Append elements to trackDiv
+                    trackDiv.appendChild(nameSpan);
+                    trackDiv.appendChild(waveformContainer);
+                    trackDiv.appendChild(waveformControlsDiv); /* Add waveform controls */
+                    trackDiv.appendChild(externalControlsDiv);
+
+                    // Edit Panel structure
+                    const editPanel = document.createElement('div');
+                    editPanel.className = 'edit-panel';
+                    editPanel.dataset.index = index;
+
+                    const currentDurationMinutes = Math.floor(vo.visualDurationSeconds / 60);
+                    const currentDurationSeconds = (vo.visualDurationSeconds % 60).toFixed(1);
+
+
+                    editPanel.innerHTML = `
+                        <div class="edit-panel-row">
+                            <label for="trimStart-${index}">Internal Trim Start (s):</label>
+                            <input type="number" id="trimStart-${index}" value="${vo.trimStart || 0}" min="0" step="0.1">
+                        </div>
+                        <div class="edit-panel-row">
+                            <label>Visual Duration:</label>
+                            <input type="number" id="durationMinutes-${index}" value="${currentDurationMinutes}" min="0" step="1"> min
+                            <input type="number" id="durationSeconds-${index}" value="${currentDurationSeconds}" min="0" step="0.1"> sec
+                            <button class="apply-button" data-action="apply-visual-changes" data-index="${index}">Apply Visual Changes</button>
+                        </div>
+                        <p class="message">Note: These changes are visual only. The underlying audio file is not modified.</p>
+                    `;
+
+                    // Add event listener for the apply changes button
+                    editPanel.querySelector('.apply-button').addEventListener('click', (event) => {
+                        const idx = parseInt(event.target.dataset.index);
+                        const trimStartInput = document.getElementById(`trimStart-${idx}`);
+                        const durationMinutesInput = document.getElementById(`durationMinutes-${idx}`);
+                        const durationSecondsInput = document.getElementById(`durationSeconds-${idx}`);
+
+                        const newTrimStart = parseFloat(trimStartInput.value);
+                        const newDurationMinutes = parseFloat(durationMinutesInput.value);
+                        const newDurationSeconds = parseFloat(durationSecondsInput.value);
+
+                        applyVisualChanges(idx, newTrimStart, newDurationMinutes, newDurationSeconds);
+                    });
+
+
+                    trackWrapper.appendChild(trackDiv);
+                    trackWrapper.appendChild(editPanel);
+                    trackWrapper.appendChild(audio); // Audio element appended to wrapper
+
+                    timelineContainer.appendChild(trackWrapper);
+                });
+            }
+        }
+
+        // Toggles the visibility of the edit panel for a specific track
+        function toggleEditPanel(index) {
+            const panel = document.querySelector(`.edit-panel[data-index="${index}"]`);
+            if (panel) {
+                panel.classList.toggle('active');
+            }
+        }
+
+        // Applies visual trim and duration to the waveform (does NOT modify actual audio)
+        function applyVisualChanges(index, trimStart, durationMinutes, durationSeconds) {
+            const voiceover = recordedVoiceovers[index];
+            const waveform = voiceover.waveformContainer;
+
+            // Update trim start
+            voiceover.trimStart = trimStart;
+            voiceover.trimStartOffset = trimStart * PIXELS_PER_SECOND; // Calculate pixel offset for internal trim
+
+            // Update visual duration
+            const totalNewDurationSeconds = (durationMinutes * 60) + durationSeconds;
+            voiceover.visualDurationSeconds = Math.max(0.1, totalNewDurationSeconds); // Ensure minimum duration
+
+            // Apply new visual properties via CSS custom properties
+            waveform.style.setProperty('--visual-trim-start-offset', `${voiceover.trimStartOffset}px`);
+            waveform.style.setProperty('--visual-width', `${voiceover.visualDurationSeconds * PIXELS_PER_SECOND}px`);
+
+            statusMessage.textContent = `Voiceover ${index + 1} visually updated: Trim Start ${trimStart}s, Duration ${durationMinutes}m ${durationSeconds}s. (Audio file unchanged)`;
+        }
+
+
+        // Function to delete a voiceover
+        function deleteVoiceover(indexToDelete) {
+            // Pause if this audio is currently playing
+            if (currentPlayingAudio === recordedVoiceovers[indexToDelete].audioElement) {
+                currentPlayingAudio.pause();
+                currentPlayingAudio = null;
+            }
+            // Revoke the Blob URL to free up memory
+            URL.revokeObjectURL(recordedVoiceovers[indexToDelete].url);
+            recordedVoiceovers.splice(indexToDelete, 1); // Remove from array
+            renderVoiceovers(); // Re-render the timeline
+            updateUI(false); // Update button states
+        }
+
+        // Start recording
+        recordButton.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                mediaRecorder = new MediaRecorder(stream);
+                currentAudioChunks = []; // Clear chunks for the new recording
+
+                mediaRecorder.ondataavailable = event => {
+                    currentAudioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(currentAudioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+
+                    // Get actual duration of the recorded audio for initial visual duration
+                    const tempAudio = new Audio(audioUrl);
+                    tempAudio.onloadedmetadata = () => {
+                        const actualDuration = tempAudio.duration; // Duration in seconds
+
+                        // Calculate the visualXOffset for the new track
+                        let newVisualXOffset = 0;
+                        if (recordedVoiceovers.length > 0) {
+                            const lastVoiceover = recordedVoiceovers[recordedVoiceovers.length - 1];
+                            // Position after the end of the last track + spacing
+                            newVisualXOffset = lastVoiceover.visualXOffset + (lastVoiceover.visualDurationSeconds * PIXELS_PER_SECOND) + TRACK_SPACING_PIXELS;
+                        }
+
+                        // Generate a unique filename
+                        const now = new Date();
+                        const filename = `voiceover-${recordedVoiceovers.length + 1}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}.webm`;
+
+                        // Add the new voiceover to our array
+                        recordedVoiceovers.push({
+                            blob: audioBlob,
+                            url: audioUrl,
+                            filename: filename,
+                            name: `Voiceover ${recordedVoiceovers.length + 1}`, // Simple naming
+                            trimStart: 0, // Initialize visual trim start to 0 seconds
+                            trimStartOffset: 0, // Initialize visual offset in pixels for internal trim
+                            visualDurationSeconds: actualDuration > 0 ? actualDuration : 5, // Default to 5s if duration is 0
+                            visualXOffset: newVisualXOffset // Set the auto-calculated X offset
+                        });
+
+                        // Stop all tracks in the stream to release microphone
+                        stream.getTracks().forEach(track => track.stop());
+
+                        renderVoiceovers(); // Update the timeline display
+                        updateUI(false); // Update UI after stopping
+                    };
+                    tempAudio.onerror = () => {
+                         console.error("Error loading audio metadata for duration calculation.");
+                         // Fallback if metadata loading fails
+                         const actualDuration = 5; // Default to 5 seconds
+                         let newVisualXOffset = 0;
+                         if (recordedVoiceovers.length > 0) {
+                            const lastVoiceover = recordedVoiceovers[recordedVoiceovers.length - 1];
+                            newVisualXOffset = lastVoiceover.visualXOffset + (lastVoiceover.visualDurationSeconds * PIXELS_PER_SECOND) + TRACK_SPACING_PIXELS;
+                         }
+
+                         const now = new Date();
+                         const filename = `voiceover-${recordedVoiceovers.length + 1}-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}.webm`;
+
+                        recordedVoiceovers.push({
+                            blob: audioBlob,
+                            url: audioUrl,
+                            filename: filename,
+                            name: `Voiceover ${recordedVoiceovers.length + 1}`,
+                            trimStart: 0,
+                            trimStartOffset: 0,
+                            visualDurationSeconds: actualDuration,
+                            visualXOffset: newVisualXOffset
+                        });
+                        stream.getTracks().forEach(track => track.stop());
+                        renderVoiceovers();
+                        updateUI(false);
+                    };
+                    // Play a tiny bit and then pause to force metadata load
+                    tempAudio.play().then(() => tempAudio.pause()).catch(e => console.error("Auto-play for metadata failed:", e));
+
+                };
+
+                mediaRecorder.start(); // Start recording
+
+                updateUI(true); // Update UI to recording state
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                statusMessage.textContent = `Error: Could not access microphone. Please ensure it's connected and permissions are granted. (${error.name})`;
+                updateUI(false); // Reset UI on error
+            }
+        });
+
+        // Stop recording
+        stopButton.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        });
+
+        // Handle the "Export All" button click
+        exportAllButton.addEventListener('click', () => {
+            // This is a placeholder. Combining audio client-side is complex.
+            // For a real app, you might use a library like Tone.js or consider server-side processing.
+            statusMessage.textContent = "Combining multiple voiceovers and exporting is a complex feature that requires advanced audio processing. For now, please download individual voiceovers.";
+        });
+
+
+        // DRAG AND DROP LOGIC
+        timelineContainer.addEventListener('dragstart', (e) => {
+            const targetTrackWrapper = e.target.closest('.track-wrapper');
+            if (targetTrackWrapper) {
+                draggedTrack = targetTrackWrapper;
+                draggedTrack.classList.add('dragging');
+                initialMouseX = e.clientX;
+
+                // Get current translateX value
+                const transformValue = window.getComputedStyle(draggedTrack).transform;
+                if (transformValue && transformValue !== 'none') {
+                    // Extract the translateX value from the matrix
+                    const matrix = new DOMMatrixReadOnly(transformValue);
+                    initialTrackX = matrix.m41; // m41 is translateX in a 2D matrix
+                } else {
+                    initialTrackX = 0;
+                }
+
+                // Set drag data (required for drag-and-drop to work in some browsers)
+                e.dataTransfer.setData('text/plain', targetTrackWrapper.dataset.index);
+                e.dataTransfer.effectAllowed = 'move';
+            }
+        });
+
+        timelineContainer.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop
+            if (draggedTrack) {
+                // Calculate new X position
+                const dx = e.clientX - initialMouseX;
+                let newX = initialTrackX + dx;
+
+                // Optional: Constrain newX to prevent dragging too far left
+                const timelineRect = timelineContainer.getBoundingClientRect();
+                const trackRect = draggedTrack.getBoundingClientRect();
+                const minX = -trackRect.left + timelineRect.left + timelineContainer.scrollLeft;
+                if (newX < minX) {
+                    newX = minX;
+                }
+                
+                draggedTrack.style.setProperty('--visual-x-offset', `${newX}px`);
+            }
+        });
+
+        timelineContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedTrack) {
+                // Final position is already set by dragover, just store it
+                const index = parseInt(draggedTrack.dataset.index);
+                if (!isNaN(index) && recordedVoiceovers[index]) {
+                    const transformValue = window.getComputedStyle(draggedTrack).transform;
+                    if (transformValue && transformValue !== 'none') {
+                        const matrix = new DOMMatrixReadOnly(transformValue);
+                        recordedVoiceovers[index].visualXOffset = matrix.m41;
+                    } else {
+                        recordedVoiceovers[index].visualXOffset = 0;
+                    }
+                }
+            }
+        });
+
+        timelineContainer.addEventListener('dragend', (e) => {
+            if (draggedTrack) {
+                draggedTrack.classList.remove('dragging');
+                draggedTrack = null;
+            }
+        });
+
+
+        // Initial UI setup
+        renderVoiceovers(); // Render any initial voiceovers (currently none)
+        updateUI(false);
+    </script>
+</body>
+</html>
