@@ -588,8 +588,10 @@
         // Start recording
         recordButton.addEventListener('click', async () => {
             try {
+                // Request access to the user's microphone
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
+                // Create a new MediaRecorder instance
                 mediaRecorder = new MediaRecorder(stream);
                 currentAudioChunks = []; // Clear chunks for the new recording
 
@@ -674,7 +676,19 @@
 
             } catch (error) {
                 console.error('Error accessing microphone:', error);
-                statusMessage.textContent = `Error: Could not access microphone. Please ensure it's connected and permissions are granted. (${error.name})`;
+                let errorMessage = "Error: Could not access microphone. ";
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += "Please allow microphone access in your browser settings.";
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += "No microphone found. Please ensure one is connected.";
+                } else if (error.name === 'NotReadableError' || error.name === 'ConstraintNotSatisfiedError') {
+                    errorMessage += "Microphone is in use or not available. Try closing other apps using the microphone.";
+                } else if (error.name === 'AbortError') {
+                    errorMessage += "Microphone access was denied or cancelled.";
+                } else {
+                    errorMessage += `An unexpected error occurred: ${error.message}.`;
+                }
+                statusMessage.textContent = errorMessage;
                 updateUI(false); // Reset UI on error
             }
         });
